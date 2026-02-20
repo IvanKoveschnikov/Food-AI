@@ -42,6 +42,8 @@ dependencies:
   table_calendar: ^3.1.2
   http: ^1.2.2
 
+  flutter_native_splash: ^2.4.7
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -53,6 +55,8 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+  flutter_launcher_icons: ^0.14.4
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -63,6 +67,9 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/icon/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -94,3 +101,28 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/app_icon.jpeg"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.jpeg"
+    background_color: "#000000"
+    theme_color: "#000000"
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.jpeg"
+    icon_size: 48
+  macos:
+    generate: true
+    image_path: "assets/icon/app_icon.jpeg"
+
+flutter_native_splash:
+  color: "#000000"
+  image: assets/icon/app_icon.jpeg
+  android_12:
+    image: assets/icon/app_icon.jpeg
+    icon_background_color: "#000000"

@@ -1,24 +1,31 @@
 import 'package:food_ai/core/config/supabase_config.dart';
+import 'package:food_ai/core/config/env.local.dart' as env_local;
 
-/// URL и anon key задаются через dart-define:
-/// flutter run --dart-define=SUPABASE_URL=https://xxx.supabase.co --dart-define=SUPABASE_ANON_KEY=eyJ...
-/// или подставьте значения ниже для разработки (не коммитьте ключи).
-const String supabaseUrl = String.fromEnvironment(
+const String _supabaseUrlEnv = String.fromEnvironment(
   'SUPABASE_URL',
   defaultValue: '',
 );
-const String supabaseAnonKey = String.fromEnvironment(
+const String _supabaseAnonKeyEnv = String.fromEnvironment(
   'SUPABASE_ANON_KEY',
   defaultValue: '',
 );
 
-SupabaseConfig get supabaseConfig => SupabaseConfig(url: supabaseUrl, anonKey: supabaseAnonKey);
+String get supabaseUrl =>
+    env_local.localSupabaseUrl.isNotEmpty ? env_local.localSupabaseUrl : _supabaseUrlEnv;
 
-/// Ключ OpenRouter для ИИ. Задать через dart-define:
-/// flutter run --dart-define=OPENROUTER_API_KEY=sk-or-v1-...
-const String openRouterApiKey = String.fromEnvironment(
+String get supabaseAnonKey =>
+    env_local.localSupabaseAnonKey.isNotEmpty ? env_local.localSupabaseAnonKey : _supabaseAnonKeyEnv;
+
+SupabaseConfig get supabaseConfig =>
+    SupabaseConfig(url: supabaseUrl, anonKey: supabaseAnonKey);
+
+const String _openRouterApiKeyEnv = String.fromEnvironment(
   'OPENROUTER_API_KEY',
   defaultValue: '',
 );
+
+String get openRouterApiKey => env_local.localOpenRouterApiKey.isNotEmpty
+    ? env_local.localOpenRouterApiKey
+    : _openRouterApiKeyEnv;
 
 bool get isAiConfigured => openRouterApiKey.isNotEmpty;

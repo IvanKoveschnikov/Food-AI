@@ -23,8 +23,10 @@ class DishRecord {
 
   factory DishRecord.fromMap(Map<String, dynamic> map) {
     return DishRecord(
-      id: map['id'] as String,
-      userId: map['user_id'] as String,
+      id: map['id'] is String ? map['id'] as String : map['id'].toString(),
+      userId: map['user_id'] is String
+          ? map['user_id'] as String
+          : map['user_id'].toString(),
       name: map['name'] as String,
       date: map['date'] as String,
       imageUrl: map['image_url'] as String?,
@@ -42,7 +44,7 @@ class DishRecord {
 Future<List<DishRecord>> getDishesForDate(String userId, String date) async {
   if (!isSupabaseConfigured) return [];
   final res = await supabase
-      .from('dishes')
+      .from('saved_dishes')
       .select()
       .eq('user_id', userId)
       .eq('date', date)
@@ -56,7 +58,7 @@ Future<Set<DateTime>> getDishDatesInMonth(String userId, int year, int month) as
   final start = '$year-${month.toString().padLeft(2, '0')}-01';
   final end = '$year-${month.toString().padLeft(2, '0')}-31';
   final res = await supabase
-      .from('dishes')
+      .from('saved_dishes')
       .select('date')
       .eq('user_id', userId)
       .gte('date', start)
@@ -76,7 +78,7 @@ Future<Set<DateTime>> getDishDatesInMonth(String userId, int year, int month) as
 
 Future<DishRecord?> getDishById(String dishId) async {
   if (!isSupabaseConfigured) return null;
-  final res = await supabase.from('dishes').select().eq('id', dishId).maybeSingle();
+  final res = await supabase.from('saved_dishes').select().eq('id', dishId).maybeSingle();
   return res != null ? DishRecord.fromMap(res as Map<String, dynamic>) : null;
 }
 
@@ -87,7 +89,7 @@ Future<DishRecord> insertDish({
   String? imageUrl,
   String? description,
 }) async {
-  final res = await supabase.from('dishes').insert({
+  final res = await supabase.from('saved_dishes').insert({
     'user_id': userId,
     'name': name,
     'date': date,
@@ -104,9 +106,9 @@ Future<void> updateDish(String dishId, {String? name, String? date, String? imag
   if (imageUrl != null) map['image_url'] = imageUrl;
   if (description != null) map['description'] = description;
   if (map.isEmpty) return;
-  await supabase.from('dishes').update(map).eq('id', dishId);
+  await supabase.from('saved_dishes').update(map).eq('id', dishId);
 }
 
 Future<void> deleteDish(String dishId) async {
-  await supabase.from('dishes').delete().eq('id', dishId);
+  await supabase.from('saved_dishes').delete().eq('id', dishId);
 }

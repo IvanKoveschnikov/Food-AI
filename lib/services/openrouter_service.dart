@@ -4,19 +4,29 @@ import 'package:food_ai/core/config/env.dart';
 import 'package:food_ai/services/ai_stub_service.dart' as stub;
 
 const _baseUrl = 'https://openrouter.ai/api/v1';
-const _model = 'openai/gpt-4o-mini';
+const _model = 'openrouter/free';
 
 const _visionPrompt = r'''
-По фото блюда определи название блюда и список продуктов (ингредиентов).
+По фото блюда определи:
+- название блюда на русском языке, первая буква должна быть заглавной;
+- короткое описание блюда на русском языке;
+- список продуктов (ингредиентов) тоже на русском, все названия продуктов только маленькими буквами.
 Ответь строго в формате JSON, без markdown и без пояснений:
-{"dishName": "название блюда", "productNames": ["продукт1", "продукт2", ...]}
+{"dishName": "название блюда", "description": "краткое описание блюда", "productNames": ["продукт1", "продукт2", ...]}
+Все строки и продукты должны быть на русском языке.
+Все значения в массиве productNames должны быть в нижнем регистре (только маленькие буквы).
 Только валидный JSON.
 ''';
 
 const _textPrompt = r'''
-По описанию блюда определи возможное название и список продуктов (ингредиентов).
+По текстовому описанию блюда определи:
+- возможное название блюда на русском языке, первая буква должна быть заглавной;
+- короткое описание блюда на русском языке;
+- список продуктов (ингредиентов) тоже на русском, все названия продуктов только маленькими буквами.
 Ответь строго в формате JSON, без markdown и без пояснений:
-{"dishName": "название", "productNames": ["продукт1", "продукт2", ...]}
+{"dishName": "название блюда", "description": "краткое описание блюда", "productNames": ["продукт1", "продукт2", ...]}
+Все строки и продукты должны быть на русском языке.
+Все значения в массиве productNames должны быть в нижнем регистре (только маленькие буквы).
 Только валидный JSON.
 ''';
 
@@ -82,7 +92,11 @@ Future<stub.AiAnalysisResult> analyzeImage(List<int> imageBytes) async {
 Future<stub.AiAnalysisResult> analyzeText(String description) async {
   if (openRouterApiKey.isEmpty) return stub.analyzeDishDescription(description);
   if (description.trim().isEmpty) {
-    return const stub.AiAnalysisResult(dishName: 'Блюдо', productNames: []);
+    return const stub.AiAnalysisResult(
+      dishName: 'Блюдо',
+      description: '',
+      productNames: [],
+    );
   }
   final body = {
     'model': _model,
@@ -141,9 +155,14 @@ stub.AiAnalysisResult _parseJsonResponse(String content) {
   raw = raw.trim();
   final map = jsonDecode(raw) as Map<String, dynamic>;
   final dishName = map['dishName'] as String? ?? 'Блюдо';
+  final description = map['description'] as String? ?? '';
   final list = map['productNames'];
   final productNames = list is List
       ? list.map((e) => e.toString()).toList()
       : <String>[];
-  return stub.AiAnalysisResult(dishName: dishName, productNames: productNames);
+  return stub.AiAnalysisResult(
+    dishName: dishName,
+    description: description,
+    productNames: productNames,
+  );
 }

@@ -4,6 +4,15 @@ import 'package:food_ai/services/dishes_service.dart';
 
 final selectedDateProvider = StateProvider<DateTime>((ref) => DateTime.now());
 
+/// Текущая дата (для подсветки «сегодня» в календаре), автоматически обновляется.
+final todayProvider = StreamProvider<DateTime>((ref) async* {
+  yield DateTime.now();
+  yield* Stream.periodic(
+    const Duration(minutes: 1),
+    (_) => DateTime.now(),
+  );
+});
+
 /// Текущий месяц календаря (для загрузки отметок). Храним первый день месяца.
 final calendarFocusedMonthProvider = StateProvider<DateTime>((ref) {
   final n = DateTime.now();

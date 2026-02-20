@@ -15,7 +15,7 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 GoRouter createAppRouter([AuthNotifier? authNotifier]) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/',
+    initialLocation: '/splash',
     refreshListenable: authNotifier,
     redirect: (context, state) {
       if (!isSupabaseConfigured || authNotifier == null) return null;
@@ -26,6 +26,13 @@ GoRouter createAppRouter([AuthNotifier? authNotifier]) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => MaterialPage(
+          child: SplashScreen(authNotifier: authNotifier),
+        ),
+      ),
       GoRoute(
         path: '/login',
         parentNavigatorKey: _rootNavigatorKey,
@@ -103,6 +110,114 @@ GoRouter createAppRouter([AuthNotifier? authNotifier]) {
   );
 }
 
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key, this.authNotifier});
+
+  final AuthNotifier? authNotifier;
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 1200), _goNext);
+  }
+
+  void _goNext() {
+    if (!mounted) return;
+    final authNotifier = widget.authNotifier;
+    String target;
+    if (!isSupabaseConfigured || authNotifier == null) {
+      target = '/';
+    } else {
+      target = authNotifier.user != null ? '/' : '/login';
+    }
+    if (mounted) {
+      context.go(target);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF111111),
+      body: Stack(
+        children: [
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                _SplashLogo(),
+                SizedBox(height: 24),
+                Text(
+                  'FOOD AI',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    letterSpacing: 6,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            bottom: 48,
+            left: 0,
+            right: 0,
+            child: Column(
+              children: const [
+                SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white70,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Opacity(
+                  opacity: 0.7,
+                  child: Text(
+                    'INITIALIZING',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SplashLogo extends StatelessWidget {
+  const _SplashLogo();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: BoxDecoration(
+        color: const Color(0xFF111111),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: const Icon(
+        Icons.smart_toy_outlined,
+        color: Colors.white,
+        size: 48,
+      ),
+    );
+  }
+}
 class ScaffoldWithNavBar extends StatelessWidget {
   const ScaffoldWithNavBar({
     super.key,

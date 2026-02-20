@@ -16,7 +16,8 @@ class AddDishNoPhotoScreen extends ConsumerStatefulWidget {
   final String? selectedDate;
 
   @override
-  ConsumerState<AddDishNoPhotoScreen> createState() => _AddDishNoPhotoScreenState();
+  ConsumerState<AddDishNoPhotoScreen> createState() =>
+      _AddDishNoPhotoScreenState();
 }
 
 class _AddDishNoPhotoScreenState extends ConsumerState<AddDishNoPhotoScreen> {
@@ -57,7 +58,6 @@ class _AddDishNoPhotoScreenState extends ConsumerState<AddDishNoPhotoScreen> {
     });
     try {
       final result = await analyzeDishDescription(_descController.text.trim());
-      if (!mounted) return;
       final user = ref.read(currentUserProvider);
       if (user != null) {
         _allProducts = await getProducts(userId: user.id);
@@ -66,13 +66,23 @@ class _AddDishNoPhotoScreenState extends ConsumerState<AddDishNoPhotoScreen> {
       for (final p in _allProducts) {
         nameToId.putIfAbsent(p.name.toLowerCase(), () => p.id);
       }
-      _nameController.text = result.dishName;
+      final seen = <String>{};
+      final uniqueNames = <String>[];
+      for (final raw in result.productNames) {
+        final trimmed = raw.trim();
+        if (trimmed.isEmpty) continue;
+        final lower = trimmed.toLowerCase();
+        if (seen.add(lower)) {
+          uniqueNames.add(trimmed);
+        }
+      }
       setState(() {
-        _suggestedProductNames = result.productNames;
+        _nameController.text = result.dishName;
+        _suggestedProductNames = uniqueNames;
         _selectedProductIds.clear();
         _selectedNamesNoId.clear();
         _nameToProductId.clear();
-        for (final n in result.productNames) {
+        for (final n in uniqueNames) {
           final id = nameToId[n.toLowerCase()];
           if (id != null) {
             _nameToProductId[n] = id;
@@ -148,13 +158,35 @@ class _AddDishNoPhotoScreenState extends ConsumerState<AddDishNoPhotoScreen> {
     setState(() => _loading = true);
     try {
       final productIds = Set<String>.from(_selectedProductIds);
-      for (final name in _selectedNamesNoId) {
-        final p = await insertProduct(name: name, scope: 'user', createdBy: user.id);
-        if (p != null) productIds.add(p.id);
+      final existingByName = <String, ProductRecord>{};
+      for (final p in _allProducts) {
+        existingByName[p.name.trim().toLowerCase()] = p;
+      }
+      for (final rawName in _selectedNamesNoId) {
+        final name = rawName.trim();
+        if (name.isEmpty) continue;
+        final lower = name.toLowerCase();
+        final existing = existingByName[lower];
+        if (existing != null) {
+          productIds.add(existing.id);
+          continue;
+        }
+        final p = await insertProduct(
+          name: name,
+          scope: 'user',
+          createdBy: user.id,
+        );
+        if (p != null) {
+          productIds.add(p.id);
+          existingByName[lower] = p;
+          _allProducts = [..._allProducts, p];
+        }
       }
       final dish = await insertDish(
         userId: user.id,
-        name: _nameController.text.trim().isEmpty ? 'Блюдо' : _nameController.text.trim(),
+        name: _nameController.text.trim().isEmpty
+            ? 'Блюдо'
+            : _nameController.text.trim(),
         date: _dateStr(),
       );
       await setDishProducts(dish.id, productIds.toList());
@@ -164,7 +196,9 @@ class _AddDishNoPhotoScreenState extends ConsumerState<AddDishNoPhotoScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
       }
     }
     if (mounted) setState(() => _loading = false);
@@ -175,10 +209,8 @@ class _AddDishNoPhotoScreenState extends ConsumerState<AddDishNoPhotoScreen> {
     if (user == null) return;
     final added = await showDialog<ProductRecord>(
       context: context,
-      builder: (ctx) => _AddProductDialog(
-        existingProducts: _allProducts,
-        userId: user.id,
-      ),
+      builder: (ctx) =>
+          _AddProductDialog(existingProducts: _allProducts, userId: user.id),
     );
     if (added != null && mounted) {
       setState(() {
@@ -202,154 +234,260 @@ class _AddDishNoPhotoScreenState extends ConsumerState<AddDishNoPhotoScreen> {
           onPressed: () => context.pop(),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: true, label: Text('По описанию'), icon: Icon(Icons.text_fields)),
-              ButtonSegment(value: false, label: Text('Из списка'), icon: Icon(Icons.list)),
-            ],
-            selected: {_byDescription},
-            onSelectionChanged: (s) {
-              setState(() {
-                _byDescription = s.first;
-                _formReady = false;
-                if (!_byDescription) _loadTemplates();
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          if (_byDescription) ...[
-            TextField(
-              controller: _descController,
-              decoration: const InputDecoration(
-                labelText: 'Описание или название',
-                hintText: 'Опишите блюдо или введите название',
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 12),
-            FilledButton.tonal(
-              onPressed: _analyzing ? null : _analyzeByDescription,
-              child: _analyzing
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('Получить состав'),
-            ),
-            if (_analysisError != null) ...[
-              const SizedBox(height: 12),
-              Material(
-                color: Theme.of(context).colorScheme.errorContainer,
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final maxWidth = width < 520 ? width - 32 : 520.0;
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: maxWidth),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          _analysisError!,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer, fontSize: 13),
+                      SegmentedButton<bool>(
+                        segments: const [
+                          ButtonSegment(
+                            value: true,
+                            label: Text('По описанию'),
+                            icon: Icon(Icons.text_fields),
+                          ),
+                          ButtonSegment(
+                            value: false,
+                            label: Text('Из списка'),
+                            icon: Icon(Icons.list),
+                          ),
+                        ],
+                        selected: {_byDescription},
+                        onSelectionChanged: (s) {
+                          setState(() {
+                            _byDescription = s.first;
+                            _formReady = false;
+                            if (!_byDescription) _loadTemplates();
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      if (_byDescription) ...[
+                        TextField(
+                          controller: _descController,
+                          decoration: const InputDecoration(
+                            labelText: 'Описание или название',
+                            hintText: 'Опишите блюдо или введите название',
+                          ),
+                          maxLines: 2,
                         ),
-                      ),
-                      TextButton(
-                        onPressed: () => _analyzeByDescription(),
-                        child: const Text('Повторить'),
-                      ),
+                        const SizedBox(height: 12),
+                        FilledButton.tonal(
+                          onPressed: _analyzing ? null : _analyzeByDescription,
+                          child: _analyzing
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Получить состав'),
+                        ),
+                        if (_analysisError != null) ...[
+                          const SizedBox(height: 12),
+                          Material(
+                            color: Theme.of(context).colorScheme.errorContainer,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _analysisError!,
+                                      style: TextStyle(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onErrorContainer,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => _analyzeByDescription(),
+                                    child: const Text('Повторить'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ] else ...[
+                        if (_templates.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Center(
+                              child: Text(
+                                'Нет готовых списков. Создайте в профиле.',
+                              ),
+                            ),
+                          )
+                        else
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedTemplateId,
+                            decoration: const InputDecoration(
+                              labelText: 'Готовый список',
+                            ),
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text('Выберите список'),
+                              ),
+                              ..._templates.map(
+                                (t) => DropdownMenuItem(
+                                  value: t.id,
+                                  child: Text(t.name),
+                                ),
+                              ),
+                            ],
+                            onChanged: (v) => _selectTemplate(v),
+                          ),
+                      ],
+                      if (_formReady) ...[
+                        const SizedBox(height: 24),
+                        TextField(
+                          controller: _nameController,
+                          decoration: const InputDecoration(
+                            labelText: AppStrings.dishName,
+                          ),
+                          onChanged: (_) {},
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          AppStrings.products,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ..._suggestedProductNames.map((name) {
+                              final productId = _nameToProductId[name];
+                              final isSelected = productId != null
+                                  ? _selectedProductIds.contains(productId)
+                                  : _selectedNamesNoId.contains(name);
+                              return FilterChip(
+                                label: Text(name),
+                                selected: isSelected,
+                                onSelected: (selected) async {
+                                  if (productId != null) {
+                                    setState(() {
+                                      if (selected) {
+                                        _selectedProductIds.add(productId);
+                                      } else {
+                                        _selectedProductIds.remove(productId);
+                                      }
+                                    });
+                                  } else {
+                                    if (selected) {
+                                      final user = ref.read(
+                                        currentUserProvider,
+                                      );
+                                      if (user == null) return;
+                                      final normalized = name
+                                          .trim()
+                                          .toLowerCase();
+                                      ProductRecord? existing;
+                                      for (final p in _allProducts) {
+                                        if (p.name.trim().toLowerCase() ==
+                                            normalized) {
+                                          existing = p;
+                                          break;
+                                        }
+                                      }
+                                      if (existing != null) {
+                                        if (mounted) {
+                                          setState(() {
+                                            _nameToProductId[name] =
+                                                existing!.id;
+                                            _selectedNamesNoId.remove(name);
+                                            _selectedProductIds.add(
+                                              existing!.id,
+                                            );
+                                          });
+                                        }
+                                        return;
+                                      }
+                                      final created = await insertProduct(
+                                        name: name,
+                                        scope: 'user',
+                                        createdBy: user.id,
+                                      );
+                                      if (created != null && mounted) {
+                                        setState(() {
+                                          _nameToProductId[name] = created.id;
+                                          _allProducts = [
+                                            ..._allProducts,
+                                            created,
+                                          ];
+                                          _selectedNamesNoId.remove(name);
+                                          _selectedProductIds.add(created.id);
+                                        });
+                                      }
+                                    } else {
+                                      setState(
+                                        () => _selectedNamesNoId.remove(name),
+                                      );
+                                    }
+                                  }
+                                },
+                              );
+                            }),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _addOwnProduct,
+                          icon: const Icon(Icons.add),
+                          label: const Text(AppStrings.addOwnProduct),
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton(
+                          onPressed: _loading ? null : _save,
+                          child: _loading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(AppStrings.save),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _loading ? null : () => context.pop(),
+                          child: const Text(AppStrings.cancel),
+                        ),
+                      ],
                     ],
                   ),
                 ),
-              ),
-            ],
-          ] else ...[
-            if (_templates.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: Text('Нет готовых списков. Создайте в профиле.')),
-              )
-            else
-              DropdownButtonFormField<String>(
-                value: _selectedTemplateId,
-                decoration: const InputDecoration(labelText: 'Готовый список'),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Выберите список')),
-                  ..._templates.map((t) => DropdownMenuItem(value: t.id, child: Text(t.name))),
-                ],
-                onChanged: (v) => _selectTemplate(v),
-              ),
-          ],
-          if (_formReady) ...[
-            const SizedBox(height: 24),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: AppStrings.dishName),
-              onChanged: (_) {},
+              ],
             ),
-            const SizedBox(height: 16),
-            Text(AppStrings.products, style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            ..._suggestedProductNames.map((name) {
-              final productId = _nameToProductId[name];
-              final isSelected = productId != null
-                  ? _selectedProductIds.contains(productId)
-                  : _selectedNamesNoId.contains(name);
-              return CheckboxListTile(
-                title: Text(name),
-                value: isSelected,
-                onChanged: (v) async {
-                  if (productId != null) {
-                    setState(() {
-                      if (v == true) {
-                        _selectedProductIds.add(productId);
-                      } else {
-                        _selectedProductIds.remove(productId);
-                      }
-                    });
-                  } else {
-                    if (v == true) {
-                      final user = ref.read(currentUserProvider);
-                      if (user == null) return;
-                      final created = await insertProduct(name: name, scope: 'user', createdBy: user.id);
-                      if (created != null && mounted) {
-                        setState(() {
-                          _nameToProductId[name] = created.id;
-                          _allProducts = [..._allProducts, created];
-                          _selectedNamesNoId.remove(name);
-                          _selectedProductIds.add(created.id);
-                        });
-                      }
-                    } else {
-                      setState(() => _selectedNamesNoId.remove(name));
-                    }
-                  }
-                },
-              );
-            }),
-            OutlinedButton.icon(
-              onPressed: _addOwnProduct,
-              icon: const Icon(Icons.add),
-              label: const Text(AppStrings.addOwnProduct),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _loading ? null : _save,
-              child: _loading
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text(AppStrings.save),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: _loading ? null : () => context.pop(),
-              child: const Text(AppStrings.cancel),
-            ),
-          ],
-        ],
+          );
+        },
       ),
     );
   }
 }
 
 class _AddProductDialog extends StatefulWidget {
-  const _AddProductDialog({required this.existingProducts, required this.userId});
+  const _AddProductDialog({
+    required this.existingProducts,
+    required this.userId,
+  });
 
   final List<ProductRecord> existingProducts;
   final String userId;
@@ -371,7 +509,9 @@ class _AddProductDialogState extends State<_AddProductDialog> {
   List<ProductRecord> get _filtered {
     if (_query.isEmpty) return widget.existingProducts;
     final q = _query.toLowerCase();
-    return widget.existingProducts.where((p) => p.name.toLowerCase().contains(q)).toList();
+    return widget.existingProducts
+        .where((p) => p.name.toLowerCase().contains(q))
+        .toList();
   }
 
   @override
@@ -385,7 +525,9 @@ class _AddProductDialogState extends State<_AddProductDialog> {
           children: [
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(hintText: 'Поиск или новое название'),
+              decoration: const InputDecoration(
+                hintText: 'Поиск или новое название',
+              ),
               onChanged: (v) => setState(() => _query = v),
             ),
             const SizedBox(height: 12),
@@ -395,15 +537,26 @@ class _AddProductDialogState extends State<_AddProductDialog> {
                 itemCount: _filtered.length + 1,
                 itemBuilder: (context, i) {
                   if (i == _filtered.length) {
-                    if (_nameController.text.trim().isEmpty) return const SizedBox.shrink();
+                    if (_nameController.text.trim().isEmpty) {
+                      return const SizedBox.shrink();
+                    }
                     return ListTile(
                       title: Text('Создать "${_nameController.text.trim()}"'),
                       leading: const Icon(Icons.add),
                       onTap: () async {
                         final name = _nameController.text.trim();
-                        if (name.isEmpty) return;
-                        final p = await insertProduct(name: name, scope: 'user', createdBy: widget.userId);
-                        if (p != null && mounted) Navigator.of(context).pop(p);
+                        if (name.isEmpty) {
+                          return;
+                        }
+                        final navigator = Navigator.of(context);
+                        final p = await insertProduct(
+                          name: name,
+                          scope: 'user',
+                          createdBy: widget.userId,
+                        );
+                        if (p != null) {
+                          navigator.pop(p);
+                        }
                       },
                     );
                   }

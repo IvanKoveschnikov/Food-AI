@@ -20,6 +20,12 @@ class HomeScreen extends ConsumerWidget {
     final focusedMonth = ref.watch(calendarFocusedMonthProvider);
     final dishesAsync = ref.watch(dishesForSelectedDateProvider);
     final markedDatesAsync = ref.watch(dishDatesInFocusedMonthProvider);
+    final todayAsync = ref.watch(todayProvider);
+    final today = todayAsync.when(
+      data: (d) => d,
+      loading: () => DateTime.now(),
+      error: (_, __) => DateTime.now(),
+    );
     final locale = Localizations.localeOf(context);
 
     return Scaffold(
@@ -29,108 +35,211 @@ class HomeScreen extends ConsumerWidget {
           ref.invalidate(dishesForSelectedDateProvider);
           ref.invalidate(dishDatesInFocusedMonthProvider);
         },
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            TableCalendar(
-              firstDay: DateTime(2020, 1, 1),
-              lastDay: DateTime(2030, 12, 31),
-              focusedDay: focusedMonth,
-              currentDay: DateTime.now(),
-              selectedDayPredicate: (d) => isSameDay(d, selectedDate),
-              onDaySelected: (day, _) => ref.read(selectedDateProvider.notifier).state = day,
-              onPageChanged: (focused) => ref.read(calendarFocusedMonthProvider.notifier).state = focused,
-              locale: locale.languageCode,
-              calendarFormat: CalendarFormat.month,
-              headerStyle: const HeaderStyle(
-                formatButtonVisible: false,
-                titleCentered: true,
-              ),
-              calendarStyle: CalendarStyle(
-                selectedDecoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                todayDecoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              calendarBuilders: CalendarBuilders(
-                markerBuilder: (context, date, events) {
-                  return markedDatesAsync.when(
-                    data: (marked) {
-                      final hasDish = marked.any((d) =>
-                          d.year == date.year && d.month == date.month && d.day == date.day);
-                      if (!hasDish) return null;
-                      return Positioned(
-                        bottom: 4,
-                        child: Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            shape: BoxShape.circle,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            final maxWidth = width < 520 ? width - 32 : 520.0;
+            return Align(
+              alignment: Alignment.topCenter,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TableCalendar(
+                          firstDay: DateTime(2020, 1, 1),
+                          lastDay: DateTime(2030, 12, 31),
+                          focusedDay: focusedMonth,
+                          currentDay: DateTime(
+                            today.year,
+                            today.month,
+                            today.day,
+                          ),
+                          selectedDayPredicate: (d) =>
+                              isSameDay(d, selectedDate),
+                          onDaySelected: (day, _) =>
+                              ref.read(selectedDateProvider.notifier).state =
+                                  day,
+                          onPageChanged: (focused) =>
+                              ref
+                                      .read(
+                                        calendarFocusedMonthProvider.notifier,
+                                      )
+                                      .state =
+                                  focused,
+                          locale: locale.languageCode,
+                          calendarFormat: CalendarFormat.month,
+                          headerStyle: const HeaderStyle(
+                            formatButtonVisible: false,
+                            titleCentered: true,
+                          ),
+                          calendarStyle: CalendarStyle(
+                            selectedDecoration: BoxDecoration(
+                              color: Colors.transparent,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.black,
+                                width: 1,
+                              ),
+                            ),
+                            selectedTextStyle: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            todayDecoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primaryContainer,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          calendarBuilders: CalendarBuilders(
+                            selectedBuilder: (context, date, _) {
+                              final isToday = date.year == today.year &&
+                                  date.month == today.month &&
+                                  date.day == today.day;
+                              if (!isToday) return null;
+                              return Center(
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.black,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    '${date.day}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                            markerBuilder: (context, date, events) {
+                              return markedDatesAsync.when(
+                                data: (marked) {
+                                  final hasDish = marked.any(
+                                    (d) =>
+                                        d.year == date.year &&
+                                        d.month == date.month &&
+                                        d.day == date.day,
+                                  );
+                                  if (!hasDish) return null;
+                                  return Positioned(
+                                    bottom: 4,
+                                    child: Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                loading: () => null,
+                                error: (error, stackTrace) => null,
+                              );
+                            },
                           ),
                         ),
-                      );
-                    },
-                    loading: () => null,
-                    error: (_, __) => null,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              '${AppStrings.dishesOnDate} — ${DateFormat.yMMMd(locale.toString()).format(selectedDate)}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            dishesAsync.when(
-              data: (dishes) {
-                if (dishes.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: Text(
-                        AppStrings.noDishes,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey),
-                      ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SizedBox(
+                                height: 48,
+                                child: FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  onPressed: () => context.go('/camera'),
+                                  icon: const Icon(Icons.bolt),
+                                  label: const Text('Анализ блюда AI'),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: SizedBox(
+                                height: 48,
+                                child: OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  onPressed: () => context.push(
+                                    '/add-no-photo?date=${_dateToStr(selectedDate)}',
+                                  ),
+                                  icon: const Icon(Icons.edit_note),
+                                  label: const Text('Добавить блюдо'),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          '${AppStrings.dishesOnDate} — ${DateFormat.yMMMd(locale.toString()).format(selectedDate)}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 12),
+                        dishesAsync.when(
+                          data: (dishes) {
+                            if (dishes.isEmpty) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    AppStrings.noDishes,
+                                    style: Theme.of(context).textTheme.bodyLarge
+                                        ?.copyWith(color: Colors.grey),
+                                  ),
+                                ),
+                              );
+                            }
+                            return Column(
+                              children: dishes
+                                  .map((d) => _DishCard(dish: d))
+                                  .toList(),
+                            );
+                          },
+                          loading: () => const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                          error: (e, _) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: Text(
+                                'Ошибка: $e',
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  );
-                }
-                return Column(
-                  children: dishes.map((d) => _DishCard(dish: d)).toList(),
-                );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (e, _) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Center(
-                  child: Text(
-                    'Ошибка: $e',
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
                   ),
-                ),
+                ],
               ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: () => context.push('/add-no-photo?date=${_dateToStr(selectedDate)}'),
-              icon: const Icon(Icons.add),
-              label: const Text(AppStrings.addDishNoPhoto),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.tonalIcon(
-              onPressed: () => context.go('/camera'),
-              icon: const Icon(Icons.camera_alt),
-              label: const Text(AppStrings.fromGallery),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -160,7 +269,8 @@ class _DishCard extends StatelessWidget {
                         width: 56,
                         height: 56,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _placeholderIcon(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            _placeholderIcon(),
                       ),
                     );
                   }

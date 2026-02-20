@@ -45,9 +45,7 @@ Future<DishTemplateRecord?> getTemplateById(String templateId) async {
       .select()
       .eq('id', templateId)
       .maybeSingle();
-  return res != null
-      ? DishTemplateRecord.fromMap(res as Map<String, dynamic>)
-      : null;
+  return res != null ? DishTemplateRecord.fromMap(res) : null;
 }
 
 Future<List<ProductRecord>> getTemplateProducts(String templateId) async {
@@ -56,10 +54,16 @@ Future<List<ProductRecord>> getTemplateProducts(String templateId) async {
       .from('dish_template_products')
       .select('product_id')
       .eq('template_id', templateId);
-  final ids =
-      (res as List).map((e) => (e as Map<String, dynamic>)['product_id'] as String).toList();
+  final ids = (res as List)
+      .map((e) => (e as Map<String, dynamic>)['product_id'])
+      .where((id) => id != null)
+      .map((id) => id.toString())
+      .toList();
   if (ids.isEmpty) return [];
-  final productsRes = await supabase.from('products').select().inFilter('id', ids);
+  final productsRes = await supabase
+      .from('products')
+      .select()
+      .inFilter('id', ids);
   return (productsRes as List)
       .map((e) => ProductRecord.fromMap(e as Map<String, dynamic>))
       .toList();
@@ -74,17 +78,24 @@ Future<DishTemplateRecord?> insertTemplate({
       .insert({'user_id': userId, 'name': name})
       .select()
       .maybeSingle();
-  return res != null
-      ? DishTemplateRecord.fromMap(res as Map<String, dynamic>)
-      : null;
+  return res != null ? DishTemplateRecord.fromMap(res) : null;
 }
 
 Future<void> updateTemplate(String templateId, String name) async {
-  await supabase.from('dish_templates').update({'name': name}).eq('id', templateId);
+  await supabase
+      .from('dish_templates')
+      .update({'name': name})
+      .eq('id', templateId);
 }
 
-Future<void> setTemplateProducts(String templateId, List<String> productIds) async {
-  await supabase.from('dish_template_products').delete().eq('template_id', templateId);
+Future<void> setTemplateProducts(
+  String templateId,
+  List<String> productIds,
+) async {
+  await supabase
+      .from('dish_template_products')
+      .delete()
+      .eq('template_id', templateId);
   for (final pid in productIds) {
     await supabase.from('dish_template_products').insert({
       'template_id': templateId,

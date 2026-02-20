@@ -1,5 +1,6 @@
 # Env and secrets
 .env
+lib/core/config/env.local.dart
 
 # Miscellaneous
 *.class

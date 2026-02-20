@@ -1,7 +1,7 @@
 /// Строки приложения на русском языке.
 abstract class AppStrings {
   // Общие
-  static const String appTitle = 'Еда и ИИ';
+  static const String appTitle = 'Food AI';
   static const String save = 'Сохранить';
   static const String cancel = 'Отмена';
   static const String delete = 'Удалить';

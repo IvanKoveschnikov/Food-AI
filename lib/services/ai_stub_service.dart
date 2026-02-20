@@ -3,8 +3,9 @@
 Future<AiAnalysisResult> analyzeDishImage(List<int> imageBytes) async {
   await Future.delayed(const Duration(milliseconds: 500));
   return const AiAnalysisResult(
-    dishName: 'Блюдо по фото',
-    productNames: ['Картофель', 'Мясо', 'Лук', 'Морковь', 'Соль'],
+    dishName: 'блюдо по фото',
+    description: 'пример описания блюда по фото',
+    productNames: ['картофель', 'мясо', 'лук', 'морковь', 'соль'],
   );
 }
 
@@ -12,20 +13,23 @@ Future<AiAnalysisResult> analyzeDishImage(List<int> imageBytes) async {
 Future<AiAnalysisResult> analyzeDishDescription(String description) async {
   await Future.delayed(const Duration(milliseconds: 400));
   if (description.trim().isEmpty) {
-    return const AiAnalysisResult(dishName: 'Блюдо', productNames: []);
+    return const AiAnalysisResult(dishName: 'Блюдо', description: '', productNames: []);
   }
   return AiAnalysisResult(
     dishName: description.length > 30 ? '${description.substring(0, 30)}...' : description,
-    productNames: ['Ингредиент 1', 'Ингредиент 2'],
+    description: description,
+    productNames: ['ингредиент 1', 'ингредиент 2'],
   );
 }
 
 class AiAnalysisResult {
   const AiAnalysisResult({
     required this.dishName,
+    required this.description,
     required this.productNames,
   });
 
   final String dishName;
+  final String description;
   final List<String> productNames;
 }

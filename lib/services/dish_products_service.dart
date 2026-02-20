@@ -8,7 +8,9 @@ Future<List<ProductRecord>> getProductsForDish(String dishId) async {
       .select('product_id, is_user_added')
       .eq('dish_id', dishId);
   final productIds = (res as List)
-      .map((e) => (e as Map<String, dynamic>)['product_id'] as String)
+      .map((e) => (e as Map<String, dynamic>)['product_id'])
+      .where((id) => id != null)
+      .map((id) => id.toString())
       .toList();
   if (productIds.isEmpty) return [];
   final productsRes = await supabase.from('products').select().inFilter('id', productIds);
