@@ -1,0 +1,31 @@
+Analyzing food_AI...                                            
+
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\core\theme\app_theme.dart:20:9 - deprecated_member_use
+   info - 'onBackground' is deprecated and shouldn't be used. Use onSurface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\core\theme\app_theme.dart:21:9 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\app_theme.dart:36:35 - deprecated_member_use
+   info - 'background' is deprecated and shouldn't be used. Use surface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\core\theme\app_theme.dart:98:9 - deprecated_member_use
+   info - 'onBackground' is deprecated and shouldn't be used. Use onSurface instead. This feature was deprecated after v3.18.0-0.1.pre - lib\core\theme\app_theme.dart:99:9 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\app_theme.dart:113:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\app_theme.dart:123:54 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\theme\app_theme.dart:127:54 - deprecated_member_use
+warning - The '!' will have no effect because the receiver can't be null - lib\features\camera\add_dish_no_photo_screen.dart:416:55 - unnecessary_non_null_assertion
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\camera\camera_screen.dart:316:61 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\camera\camera_screen.dart:321:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\camera\camera_screen.dart:487:57 - deprecated_member_use
+   info - Unnecessary use of 'toList' in a spread - lib\features\camera\camera_screen.dart:533:28 - unnecessary_to_list_in_spreads
+   info - Statements in an if should be enclosed in a block - lib\features\camera\camera_screen.dart:646:23 - curly_braces_in_flow_control_structures
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\camera\camera_screen.dart:658:64 - use_build_context_synchronously
+   info - Unnecessary braces in a string interpolation - lib\features\dish_detail\dish_detail_screen.dart:330:44 - unnecessary_brace_in_string_interps
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\dish_detail\dish_detail_screen.dart:421:58 - deprecated_member_use
+   info - Unnecessary use of multiple underscores - lib\features\home\home_screen.dart:28:18 - unnecessary_underscores
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:347:28 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:359:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\home_screen.dart:366:31 - deprecated_member_use
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\profile\template_edit_screen.dart:238:64 - use_build_context_synchronously
+   info - The import of 'package:flutter/cupertino.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' - lib\main.dart:2:8 - unnecessary_import
+warning - Unnecessary cast - lib\services\dishes_service.dart:72:29 - unnecessary_cast
+warning - Unnecessary cast - lib\services\dishes_service.dart:130:31 - unnecessary_cast
+   info - Don't invoke 'print' in production code - lib\services\openrouter_service.dart:66:5 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\openrouter_service.dart:124:5 - avoid_print
+warning - Unnecessary cast - lib\services\profile_service.dart:36:46 - unnecessary_cast
+

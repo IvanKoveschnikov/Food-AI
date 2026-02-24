@@ -9,10 +9,12 @@ const _model = 'openrouter/free';
 const _visionPrompt = r'''
 По фото блюда определи:
 - название блюда на русском языке, первая буква должна быть заглавной;
-- короткое описание блюда на русском языке;
+- короткое описание блюда на русском языке (2-3 предложения);
+- совет по питанию: сколько раз в день стоит есть это блюдо, чем оно богато, чем может быть вредно, подходит ли для диеты (2-4 предложения);
+- процент уверенности (0-100), насколько ты уверен что правильно определил блюдо;
 - список продуктов (ингредиентов) тоже на русском, все названия продуктов только маленькими буквами.
 Ответь строго в формате JSON, без markdown и без пояснений:
-{"dishName": "название блюда", "description": "краткое описание блюда", "productNames": ["продукт1", "продукт2", ...]}
+{"dishName": "название блюда", "description": "краткое описание", "aiAdvice": "совет по питанию", "confidence": 85, "productNames": ["продукт1", "продукт2", ...]}
 Все строки и продукты должны быть на русском языке.
 Все значения в массиве productNames должны быть в нижнем регистре (только маленькие буквы).
 Только валидный JSON.
@@ -21,10 +23,12 @@ const _visionPrompt = r'''
 const _textPrompt = r'''
 По текстовому описанию блюда определи:
 - возможное название блюда на русском языке, первая буква должна быть заглавной;
-- короткое описание блюда на русском языке;
+- короткое описание блюда на русском языке (2-3 предложения);
+- совет по питанию: сколько раз в день стоит есть это блюдо, чем оно богато, чем может быть вредно, подходит ли для диеты (2-4 предложения);
+- процент уверенности (0-100), насколько ты уверен что правильно определил блюдо;
 - список продуктов (ингредиентов) тоже на русском, все названия продуктов только маленькими буквами.
 Ответь строго в формате JSON, без markdown и без пояснений:
-{"dishName": "название блюда", "description": "краткое описание блюда", "productNames": ["продукт1", "продукт2", ...]}
+{"dishName": "название блюда", "description": "краткое описание", "aiAdvice": "совет по питанию", "confidence": 85, "productNames": ["продукт1", "продукт2", ...]}
 Все строки и продукты должны быть на русском языке.
 Все значения в массиве productNames должны быть в нижнем регистре (только маленькие буквы).
 Только валидный JSON.
@@ -95,6 +99,8 @@ Future<stub.AiAnalysisResult> analyzeText(String description) async {
     return const stub.AiAnalysisResult(
       dishName: 'Блюдо',
       description: '',
+      aiAdvice: '',
+      confidence: 0,
       productNames: [],
     );
   }
@@ -156,6 +162,8 @@ stub.AiAnalysisResult _parseJsonResponse(String content) {
   final map = jsonDecode(raw) as Map<String, dynamic>;
   final dishName = map['dishName'] as String? ?? 'Блюдо';
   final description = map['description'] as String? ?? '';
+  final aiAdvice = map['aiAdvice'] as String? ?? '';
+  final confidence = (map['confidence'] as num?)?.toInt() ?? 0;
   final list = map['productNames'];
   final productNames = list is List
       ? list.map((e) => e.toString()).toList()
@@ -163,6 +171,8 @@ stub.AiAnalysisResult _parseJsonResponse(String content) {
   return stub.AiAnalysisResult(
     dishName: dishName,
     description: description,
+    aiAdvice: aiAdvice,
+    confidence: confidence,
     productNames: productNames,
   );
 }

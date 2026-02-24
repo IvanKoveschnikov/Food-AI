@@ -43,6 +43,7 @@ dependencies:
   http: ^1.2.2
 
   flutter_native_splash: ^2.4.7
+  flutter_animate: ^4.5.2
 
 dev_dependencies:
   flutter_test:
@@ -107,11 +108,13 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icon/app_icon.jpeg"
   min_sdk_android: 21
+  adaptive_icon_background: "#181818"
+  adaptive_icon_foreground: "assets/icon/app_icon.jpeg"
   web:
     generate: true
     image_path: "assets/icon/app_icon.jpeg"
-    background_color: "#000000"
-    theme_color: "#000000"
+    background_color: "#181818"
+    theme_color: "#181818"
   windows:
     generate: true
     image_path: "assets/icon/app_icon.jpeg"

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:food_ai/core/constants/app_strings.dart';
 import 'package:food_ai/features/home/home_providers.dart';
 import 'package:food_ai/services/dishes_service.dart';
@@ -80,10 +81,7 @@ class HomeScreen extends ConsumerWidget {
                             selectedDecoration: BoxDecoration(
                               color: Colors.transparent,
                               shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.black,
-                                width: 1,
-                              ),
+                              border: Border.all(color: Colors.black, width: 1),
                             ),
                             selectedTextStyle: const TextStyle(
                               color: Colors.black,
@@ -98,7 +96,8 @@ class HomeScreen extends ConsumerWidget {
                           ),
                           calendarBuilders: CalendarBuilders(
                             selectedBuilder: (context, date, _) {
-                              final isToday = date.year == today.year &&
+                              final isToday =
+                                  date.year == today.year &&
                                   date.month == today.month &&
                                   date.day == today.day;
                               if (!isToday) return null;
@@ -162,10 +161,14 @@ class HomeScreen extends ConsumerWidget {
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
                                     ),
+                                    alignment: Alignment.center,
                                   ),
                                   onPressed: () => context.go('/camera'),
-                                  icon: const Icon(Icons.bolt),
-                                  label: const Text('Анализ блюда AI'),
+                                  icon: const Icon(Icons.bolt, size: 18),
+                                  label: const Text(
+                                    'Анализ AI',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
                             ),
@@ -178,12 +181,16 @@ class HomeScreen extends ConsumerWidget {
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
                                     ),
+                                    alignment: Alignment.center,
                                   ),
                                   onPressed: () => context.push(
                                     '/add-no-photo?date=${_dateToStr(selectedDate)}',
                                   ),
-                                  icon: const Icon(Icons.edit_note),
-                                  label: const Text('Добавить блюдо'),
+                                  icon: const Icon(Icons.edit_note, size: 18),
+                                  label: const Text(
+                                    'Добавить',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                               ),
                             ),
@@ -213,7 +220,22 @@ class HomeScreen extends ConsumerWidget {
                             }
                             return Column(
                               children: dishes
-                                  .map((d) => _DishCard(dish: d))
+                                  .asMap()
+                                  .entries
+                                  .map(
+                                    (entry) => _DishCard(dish: entry.value)
+                                        .animate()
+                                        .fadeIn(
+                                          delay: Duration(
+                                            milliseconds: 50 * entry.key,
+                                          ),
+                                        )
+                                        .slideY(
+                                          begin: 0.2,
+                                          end: 0,
+                                          curve: Curves.easeOutQuad,
+                                        ),
+                                  )
                                   .toList(),
                             );
                           },
@@ -246,43 +268,72 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _DishCard extends StatelessWidget {
+class _DishCard extends ConsumerWidget {
   const _DishCard({required this.dish});
 
   final DishRecord dish;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: dish.imageUrl != null && dish.imageUrl!.isNotEmpty
-            ? FutureBuilder<String?>(
-                future: getDishImageSignedUrl(dish.imageUrl!),
-                builder: (context, snap) {
-                  if (snap.hasData && snap.data != null) {
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        snap.data!,
-                        width: 56,
-                        height: 56,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _placeholderIcon(),
-                      ),
-                    );
-                  }
-                  return _placeholderIcon();
-                },
-              )
-            : _placeholderIcon(),
-        title: Text(dish.name),
-        subtitle: Text(dish.date),
-        trailing: FilledButton.tonal(
-          onPressed: () => context.push('/dish/${dish.id}'),
-          child: const Text(AppStrings.more),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/dish/${dish.id}'),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 8,
+          ),
+          leading: dish.imageUrl != null && dish.imageUrl!.isNotEmpty
+              ? FutureBuilder<String?>(
+                  future: getDishImageSignedUrl(dish.imageUrl!),
+                  builder: (context, snap) {
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return _shimmerPlaceholder();
+                    }
+                    if (snap.hasData && snap.data != null) {
+                      return Hero(
+                        tag: 'dish_image_${dish.id}',
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            snap.data!,
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                _placeholderIcon(),
+                          ),
+                        ),
+                      );
+                    }
+                    return _placeholderIcon();
+                  },
+                )
+              : _placeholderIcon(),
+          title: Text(dish.name),
+          subtitle: Text(dish.date),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete),
+            color: Colors.grey,
+            onPressed: () async {
+              try {
+                await deleteDish(dish.id);
+                if (context.mounted) {
+                  // Принудительно обновляем список и календарь
+                  ref.invalidate(dishesForSelectedDateProvider);
+                  ref.invalidate(dishDatesInFocusedMonthProvider);
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка удаления: $e')),
+                  );
+                }
+              }
+            },
+          ),
         ),
       ),
     );
@@ -290,13 +341,29 @@ class _DishCard extends StatelessWidget {
 
   Widget _placeholderIcon() {
     return Container(
-      width: 56,
-      height: 56,
+      width: 64,
+      height: 64,
       decoration: BoxDecoration(
-        color: Colors.grey.shade300,
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.grey.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: const Icon(Icons.restaurant, size: 32),
+      child: const Icon(Icons.restaurant, size: 28, color: Colors.grey),
     );
+  }
+
+  Widget _shimmerPlaceholder() {
+    return Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.grey.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(10),
+          ),
+        )
+        .animate(onPlay: (controller) => controller.repeat())
+        .shimmer(
+          duration: const Duration(milliseconds: 1200),
+          color: Colors.white.withOpacity(0.5),
+        );
   }
 }

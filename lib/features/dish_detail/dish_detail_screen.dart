@@ -29,16 +29,22 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
   double _totalCalories = 0;
   double _totalProtein = 0;
   double _totalCarbs = 0;
+  int _weightGrams = 100;
+  late FixedExtentScrollController _wheelController;
 
   @override
   void initState() {
     super.initState();
+    _wheelController = FixedExtentScrollController(
+      initialItem: 9,
+    ); // 100g = index 9 (10,20,...100)
     _load();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _wheelController.dispose();
     super.dispose();
   }
 
@@ -57,7 +63,8 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
         all = await getProducts(userId: user.id);
       }
       _nameController.text = dish.name;
-      final totals = _calculateTotals(composition);
+      final weight = dish.weightGrams;
+      final totals = _calculateTotals(composition, weight);
       setState(() {
         _dish = dish;
         _composition = composition;
@@ -65,16 +72,22 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
         _selectedProductIds.addAll(composition.map((p) => p.id));
         _allProducts = all;
         _loading = false;
+        _weightGrams = weight;
         _totalCalories = totals.$1;
         _totalProtein = totals.$2;
         _totalCarbs = totals.$3;
+        // Обновляем позицию колёсика
+        final idx = (weight ~/ 10) - 1;
+        if (idx >= 0 && idx < 200) {
+          _wheelController.jumpToItem(idx);
+        }
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
     }
   }
 
@@ -82,7 +95,11 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
     if (_dish == null) return;
     setState(() => _saving = true);
     try {
-      await updateDish(widget.dishId, name: _nameController.text.trim());
+      await updateDish(
+        widget.dishId,
+        name: _nameController.text.trim(),
+        weightGrams: _weightGrams,
+      );
       await setDishProducts(widget.dishId, _selectedProductIds.toList());
       if (mounted) {
         ref.invalidate(dishesForSelectedDateProvider);
@@ -119,16 +136,31 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
     }
   }
 
-  (double, double, double) _calculateTotals(List<ProductRecord> products) {
+  (double, double, double) _calculateTotals(
+    List<ProductRecord> products, [
+    int? grams,
+  ]) {
+    final w = grams ?? _weightGrams;
     var kcal = 0.0;
     var protein = 0.0;
     var carbs = 0.0;
     for (final p in products) {
-      kcal += p.calories ?? 0;
-      protein += p.protein ?? 0;
-      carbs += p.carbs ?? 0;
+      kcal += (p.calories ?? 0) * w / 100;
+      protein += (p.protein ?? 0) * w / 100;
+      carbs += (p.carbs ?? 0) * w / 100;
     }
     return (kcal, protein, carbs);
+  }
+
+  void _onWeightChanged(int index) {
+    final grams = (index + 1) * 10;
+    final totals = _calculateTotals(_composition, grams);
+    setState(() {
+      _weightGrams = grams;
+      _totalCalories = totals.$1;
+      _totalProtein = totals.$2;
+      _totalCarbs = totals.$3;
+    });
   }
 
   @override
@@ -221,7 +253,7 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Карточки ККАЛ/Б/Ж/У (пока без расчётов)
+                      // Карточки ККАЛ/Б/У
                       Row(
                         children: [
                           Expanded(
@@ -254,10 +286,170 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Совет ИИ (описание)
+                      // Горизонтальный пикер граммов
+                      Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.scale,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Вес порции',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '$_weightGrams г',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: 50,
+                                child: RotatedBox(
+                                  quarterTurns: -1,
+                                  child: ListWheelScrollView.useDelegate(
+                                    controller: _wheelController,
+                                    itemExtent: 40,
+                                    perspective: 0.003,
+                                    diameterRatio: 1.8,
+                                    physics: const FixedExtentScrollPhysics(),
+                                    onSelectedItemChanged: _onWeightChanged,
+                                    childDelegate:
+                                        ListWheelChildBuilderDelegate(
+                                          childCount: 200,
+                                          builder: (context, index) {
+                                            final grams = (index + 1) * 10;
+                                            final isSelected =
+                                                grams == _weightGrams;
+                                            return RotatedBox(
+                                              quarterTurns: 1,
+                                              child: Center(
+                                                child: Container(
+                                                  width: 2,
+                                                  height: isSelected ? 28 : 16,
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected
+                                                        ? Theme.of(
+                                                            context,
+                                                          ).colorScheme.primary
+                                                        : grams % 50 == 0
+                                                        ? Colors.grey[400]
+                                                        : Colors.grey[300],
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          1,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (_dish!.confidence > 0) ...[
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            'Уверенность ИИ: ${_dish!.confidence}%',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: _dish!.confidence >= 80
+                                      ? Colors.green
+                                      : _dish!.confidence >= 50
+                                      ? Colors.orange
+                                      : Colors.grey,
+                                ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+
+                      // Описание блюда
                       if ((_dish!.description ?? '').trim().isNotEmpty)
                         Card(
                           elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.description_outlined,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Описание',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _dish!.description!,
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      if ((_dish!.description ?? '').trim().isNotEmpty)
+                        const SizedBox(height: 12),
+
+                      // Совет ИИ
+                      if ((_dish!.aiAdvice ?? '').trim().isNotEmpty)
+                        Card(
+                          elevation: 0,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primaryContainer.withOpacity(0.3),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -288,14 +480,14 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  _dish!.description!,
+                                  _dish!.aiAdvice!,
                                   style: Theme.of(context).textTheme.bodyMedium,
                                 ),
                               ],
                             ),
                           ),
                         ),
-                      if ((_dish!.description ?? '').trim().isNotEmpty)
+                      if ((_dish!.aiAdvice ?? '').trim().isNotEmpty)
                         const SizedBox(height: 16),
 
                       // Состав
@@ -317,8 +509,7 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                                   _composition = _composition
                                       .where((e) => e.id != p.id)
                                       .toList();
-                                  final totals =
-                                      _calculateTotals(_composition);
+                                  final totals = _calculateTotals(_composition);
                                   _totalCalories = totals.$1;
                                   _totalProtein = totals.$2;
                                   _totalCarbs = totals.$3;

@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS public.dishes (
   date DATE NOT NULL,
   image_url TEXT,
   description TEXT,
+  ai_advice TEXT,
+  confidence INTEGER DEFAULT 0,
+  weight_grams INTEGER DEFAULT 100,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

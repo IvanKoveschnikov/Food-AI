@@ -19,12 +19,12 @@ final calendarFocusedMonthProvider = StateProvider<DateTime>((ref) {
   return DateTime(n.year, n.month, 1);
 });
 
-final dishesForSelectedDateProvider = FutureProvider<List<DishRecord>>((ref) async {
+final dishesForSelectedDateProvider = StreamProvider<List<DishRecord>>((ref) {
   final user = ref.watch(currentUserProvider);
   final date = ref.watch(selectedDateProvider);
-  if (user == null) return [];
+  if (user == null) return Stream.value([]);
   final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  return getDishesForDate(user.id, dateStr);
+  return streamDishesForDate(user.id, dateStr);
 });
 
 /// Даты в отображаемом месяце, на которые есть блюда (для точек в календаре).

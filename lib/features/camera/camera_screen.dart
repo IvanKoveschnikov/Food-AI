@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:food_ai/core/constants/app_strings.dart';
 import 'package:food_ai/features/auth/auth_provider.dart';
 import 'package:food_ai/features/home/home_providers.dart';
@@ -33,11 +34,22 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
   bool _loading = false;
   bool _analyzing = false;
   String? _analysisError;
+  String _aiAdvice = '';
+  int _confidence = 0;
+  int _weightGrams = 100;
+  late FixedExtentScrollController _wheelController;
+
+  @override
+  void initState() {
+    super.initState();
+    _wheelController = FixedExtentScrollController(initialItem: 9);
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _wheelController.dispose();
     super.dispose();
   }
 
@@ -101,6 +113,8 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
         }
         _analyzing = false;
         _analysisError = null;
+        _aiAdvice = result.aiAdvice;
+        _confidence = result.confidence;
       });
     } catch (e) {
       if (mounted) {
@@ -171,11 +185,35 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
         description: _descriptionController.text.trim().isEmpty
             ? null
             : _descriptionController.text.trim(),
+        aiAdvice: _aiAdvice.isEmpty ? null : _aiAdvice,
+        confidence: _confidence,
+        weightGrams: _weightGrams,
       );
       await setDishProducts(dish.id, productIds.toList());
       if (mounted) {
         ref.invalidate(dishesForSelectedDateProvider);
-        context.go('/');
+        // Сброс состояния экрана для нового фото
+        setState(() {
+          _pickedFile = null;
+          _file = null;
+          _name = '';
+          _nameController.clear();
+          _descriptionController.clear();
+          _suggestedProductNames = [];
+          _selectedProductIds.clear();
+          _selectedNamesNoId.clear();
+          _nameToProductId.clear();
+          _aiAdvice = '';
+          _confidence = 0;
+          _weightGrams = 100;
+          _wheelController.jumpToItem(9);
+          _analysisError = null;
+          _loading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Блюдо сохранено в дневник!')),
+        );
+        return;
       }
     } catch (e) {
       if (mounted) {
@@ -262,47 +300,75 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
                   children: [
                     Stack(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.file(
-                            _file!,
-                            height: 220,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
+                        Hero(
+                          tag:
+                              'dish_image_new', // We don't have id yet, but Hero works conceptually
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(
+                              _file!,
+                              height: 240,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                         Positioned(
-                          left: 12,
-                          top: 12,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color.fromRGBO(0, 0, 0, 0.7),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(
-                                  Icons.bolt,
-                                  size: 16,
-                                  color: Colors.greenAccent,
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  'ИИ АКТИВЕН',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          left: 16,
+                          top: 16,
+                          child:
+                              Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary.withOpacity(0.8),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: Colors.white24),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.2),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                              Icons.bolt,
+                                              size: 16,
+                                              color: Theme.of(
+                                                context,
+                                              ).colorScheme.secondary,
+                                            )
+                                            .animate(onPlay: (c) => c.repeat())
+                                            .shimmer(
+                                              duration: const Duration(
+                                                seconds: 2,
+                                              ),
+                                              color: Colors.white,
+                                            ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'ИИ АНАЛИЗ',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                  .animate()
+                                  .fadeIn(duration: 400.ms)
+                                  .slideX(begin: -0.2, end: 0),
                         ),
                       ],
                     ),
@@ -418,56 +484,141 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        ..._suggestedProductNames.map((name) {
+                        ..._suggestedProductNames.asMap().entries.map((entry) {
+                          final idx = entry.key;
+                          final name = entry.value;
                           final productId = _nameToProductId[name];
                           final isSelected = productId != null
                               ? _selectedProductIds.contains(productId)
                               : _selectedNamesNoId.contains(name);
                           return FilterChip(
-                            label: Text(name),
-                            selected: isSelected,
-                            onSelected: (selected) async {
-                              if (productId != null) {
-                                setState(() {
-                                  if (selected) {
-                                    _selectedProductIds.add(productId);
-                                  } else {
-                                    _selectedProductIds.remove(productId);
-                                  }
-                                });
-                              } else {
-                                if (selected) {
-                                  final user = ref.read(currentUserProvider);
-                                  if (user == null) return;
-                                  final created = await insertProduct(
-                                    name: name,
-                                    scope: 'user',
-                                    createdBy: user.id,
-                                  );
-                                  if (created != null && mounted) {
+                                label: Text(name),
+                                selected: isSelected,
+                                selectedColor: Theme.of(
+                                  context,
+                                ).colorScheme.secondary.withOpacity(0.2),
+                                checkmarkColor: Theme.of(
+                                  context,
+                                ).colorScheme.secondary,
+                                onSelected: (selected) async {
+                                  if (productId != null) {
                                     setState(() {
-                                      _nameToProductId[name] = created.id;
-                                      _allProducts = [..._allProducts, created];
-                                      _selectedNamesNoId.remove(name);
-                                      _selectedProductIds.add(created.id);
+                                      if (selected) {
+                                        _selectedProductIds.add(productId);
+                                      } else {
+                                        _selectedProductIds.remove(productId);
+                                      }
                                     });
+                                  } else {
+                                    if (selected) {
+                                      final user = ref.read(
+                                        currentUserProvider,
+                                      );
+                                      if (user == null) return;
+                                      final created = await insertProduct(
+                                        name: name,
+                                        scope: 'user',
+                                        createdBy: user.id,
+                                      );
+                                      if (created != null && mounted) {
+                                        setState(() {
+                                          _nameToProductId[name] = created.id;
+                                          _allProducts = [
+                                            ..._allProducts,
+                                            created,
+                                          ];
+                                          _selectedNamesNoId.remove(name);
+                                          _selectedProductIds.add(created.id);
+                                        });
+                                      }
+                                    } else {
+                                      setState(
+                                        () => _selectedNamesNoId.remove(name),
+                                      );
+                                    }
                                   }
-                                } else {
-                                  setState(
-                                    () => _selectedNamesNoId.remove(name),
-                                  );
-                                }
-                              }
-                            },
-                          );
+                                },
+                              )
+                              .animate()
+                              .fadeIn(delay: Duration(milliseconds: 50 * idx))
+                              .scale(begin: const Offset(0.8, 0.8));
                         }).toList(),
                         ActionChip(
                           label: const Text('+ Продукт'),
                           onPressed: _addOwnProduct,
+                        ).animate().fadeIn(
+                          delay: Duration(
+                            milliseconds: 50 * _suggestedProductNames.length,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
+                    // Горизонтальный пикер граммов
+                    Column(
+                      children: [
+                        Text(
+                          'Вес порции',
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$_weightGrams г',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 50,
+                          child: RotatedBox(
+                            quarterTurns: -1,
+                            child: ListWheelScrollView.useDelegate(
+                              controller: _wheelController,
+                              itemExtent: 40,
+                              perspective: 0.003,
+                              diameterRatio: 1.8,
+                              physics: const FixedExtentScrollPhysics(),
+                              onSelectedItemChanged: (index) {
+                                setState(() => _weightGrams = (index + 1) * 10);
+                              },
+                              childDelegate: ListWheelChildBuilderDelegate(
+                                childCount: 200,
+                                builder: (context, index) {
+                                  final grams = (index + 1) * 10;
+                                  final isSelected = grams == _weightGrams;
+                                  return RotatedBox(
+                                    quarterTurns: 1,
+                                    child: Center(
+                                      child: Container(
+                                        width: 2,
+                                        height: isSelected ? 28 : 16,
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primary
+                                              : grams % 50 == 0
+                                              ? Colors.grey[400]
+                                              : Colors.grey[300],
+                                          borderRadius: BorderRadius.circular(
+                                            1,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     FilledButton(
                       onPressed: _loading ? null : _save,
                       style: FilledButton.styleFrom(
@@ -486,10 +637,16 @@ class _CameraScreenState extends ConsumerState<CameraScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: Text(
-                        'Точность анализа ~98%',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.labelSmall?.copyWith(color: Colors.green),
+                        _confidence > 0
+                            ? 'Уверенность ИИ: $_confidence%'
+                            : 'Анализ не выполнен',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: _confidence >= 80
+                              ? Colors.green
+                              : _confidence >= 50
+                              ? Colors.orange
+                              : Colors.grey,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),

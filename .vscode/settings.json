@@ -1,0 +1,26 @@
+{
+    "[dart]": {
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "editor.rulers": [
+            80
+        ],
+        "editor.selectionHighlight": false,
+        "editor.tabCompletion": "onlySnippets",
+        "editor.wordBasedSuggestions": "off"
+    },
+    "git.openRepositoryInParentFolders": "always",
+    "flutterflow.userApiToken": "2b5d216b-3cc4-4963-b9f0-323426cba8c4",
+    "flutterflow.projectId": "marketplace-q-rcode-w4wlpn",
+    "flutterflow.downloadLocation": "e:\\card_qard",
+    "kilo-code.allowedCommands": [
+        "git log",
+        "git diff",
+        "git show",
+        "node --version",
+        "*"
+    ],
+    "kilo-code.deniedCommands": [],
+    "kilo-code.debug": false,
+    "editor.cursorStyle": "line"
+}
